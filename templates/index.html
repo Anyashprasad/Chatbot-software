@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='sail_logo.png') }}">
+</head>
+<body class="chat-root">
+    <!-- Fixed Navbar with Dropdown -->
+    <div class="navbar">
+        <div class="nav-content">
+            <div class="nav-brand">
+                <img src="{{ url_for('static', filename='sail_web_logo.png') }}" alt="Logo" class="sail-logo">
+                <h3> Chatbot</h3>
+            </div>
+
+            <div class="nav-right">
+                <!-- Dropdown in Navbar (EXACTLY as you have it working) -->
+                <div class="navbar-dropdown">
+                    <select id="categoryDropdown" class="dropdown">
+                        <option value="general">General Questions</option>
+                    </select>
+                </div>
+
+                <div class="nav-user">
+                    <span class="user-email">{{ session.email }}</span>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Screen -->
+    <div id="center-startup">
+        <div id="welcome-message">
+            <div class="welcome-bubble streaming-welcome" id="welcomeBubble">
+                <span id="welcomeText"></span><span class="welcome-cursor" id="welcomeCursor">|</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div id="chatbox" style="display: none;">
+        <div id="chat"></div>
+    </div>
+
+    <!-- Input Form -->
+    <div id="input-form">
+        <div id="input-bar-wrapper">
+            <div id="input-area">
+                <input type="text" id="policy-search-input" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+                <button id="voice-btn" class="voice-button">🎙️</button>
+                <button id="policy-search-btn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Variables
+        let isWelcomeComplete = false;
+        let messageCounter = 0;
+        let chatStarted = false;
+        let isProcessingMessage = false;
+        let lastMessageTime = 0;
+        let isVoiceRecording = false;
+        const MESSAGE_COOLDOWN = 1000;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log(' Chatbot initialized');
+            loadCategories();
+            startWelcomeAnimation();
+            initVoiceButton();
+            document.getElementById('policy-search-input').focus();
+        });
+
+        function startWelcomeAnimation() {
+            const welcomeText = document.getElementById('welcomeText');
+            const welcomeCursor = document.getElementById('welcomeCursor');
+            const fullText = "Hello! I'm your Chatbot assistant. I can help you with document queries and various topics.";
+
+            let i = 0;
+            const typeInterval = setInterval(() => {
+                if (i < fullText.length) {
+                    welcomeText.textContent += fullText.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeInterval);
+                    setTimeout(() => {
+                        welcomeCursor.style.display = 'none';
+                        isWelcomeComplete = true;
+                    }, 1000);
+                }
+            }, 50);
+        }
+
+        function loadCategories() {
+            fetch('/get_dropdown_options')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.options) {
+                        const select = document.getElementById('categoryDropdown');
+                        select.innerHTML = '<option value="general">General Questions</option>';
+
+                        data.options.forEach(option => {
+                            const optionElement = document.createElement('option');
+                            optionElement.value = option.value;
+                            optionElement.textContent = option.label;
+                            select.appendChild(optionElement);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to load categories:', error);
+                });
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+
+                if (isProcessingMessage) {
+                    showTemporaryWarning('⏳ Please wait for the current response');
+                    return;
+                }
+
+                sendMessage();
+            }
+        }
+
+        function startChat() {
+            if (!chatStarted) {
+                document.getElementById('center-startup').style.display = 'none';
+                document.getElementById('chatbox').style.display = 'flex';
+                chatStarted = true;
+            }
+        }
+
+        // Enhanced Send Message with Spam Prevention
+        function sendMessage(customMessage = null) {
+            const messageInput = document.getElementById('policy-search-input');
+            const message = customMessage || messageInput.value.trim();
+            const category = document.getElementById('categoryDropdown').value;
+
+            if (!message) return;
+
+            // Check if bot is still responding
+            if (isProcessingMessage) {
+                showTemporaryWarning('⏳ Please wait for the current response to complete');
+                return;
+            }
+
+            // Check message cooldown
+            const now = Date.now();
+            if (now - lastMessageTime < MESSAGE_COOLDOWN) {
+                showTemporaryWarning('⏰ Please wait a moment between messages');
+                return;
+            }
+
+            // Disable input immediately
+            setInputState(false);
+            isProcessingMessage = true;
+            lastMessageTime = now;
+
+            startChat();
+
+            if (!customMessage) {
+                messageInput.value = '';
+            }
+
+            addUserMessage(message);
+            showTypingIndicator();
+
+            const requestData = {
+                message: message,
+                category: category,
+                type: 'text',
+                timestamp: new Date().toISOString()
+            };
+
+            fetch('/chat_stream_integrated', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideTypingIndicator();
+
+                if (data.error) {
+                    addBotMessage('Error: ' + data.error);
+                } else {
+                    addBotMessageWithStreaming(data);
+                }
+            })
+            .catch(error => {
+                console.error('Request failed:', error);
+                hideTypingIndicator();
+                addBotMessage('Connection error: ' + error.message);
+            })
+            .finally(() => {
+                // Re-enable input after response is complete
+                setTimeout(() => {
+                    setInputState(true);
+                    isProcessingMessage = false;
+                }, 500);
+            });
+        }
+
+        function setInputState(enabled) {
+            const messageInput = document.getElementById('policy-search-input');
+            const sendBtn = document.getElementById('policy-search-btn');
+            const voiceBtn = document.getElementById('voice-btn');
+
+            messageInput.disabled = !enabled;
+            sendBtn.disabled = !enabled;
+            if (voiceBtn) voiceBtn.disabled = !enabled;
+
+            if (enabled) {
+                messageInput.focus();
+                sendBtn.style.opacity = '1';
+                sendBtn.style.cursor = 'pointer';
+            } else {
+                sendBtn.style.opacity = '0.6';
+                sendBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        function showTemporaryWarning(message) {
+            const warning = document.createElement('div');
+            warning.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f44336;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+            `;
+            warning.textContent = message;
+            document.body.appendChild(warning);
+
+            setTimeout(() => {
+                warning.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => warning.remove(), 300);
+            }, 2000);
+        }
+
+        function addUserMessage(message) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user-message';
+            messageDiv.innerHTML = `
+                <div class="message-content">${message}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+            `;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function addBotMessage(message) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            messageDiv.innerHTML = `
+                <div class="message-content">${message}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+            `;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function addBotMessageWithStreaming(data) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message streaming-message';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            if (data.category && data.category !== 'general') {
+                timeDiv.textContent += ' • ' + data.category;
+            }
+
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timeDiv);
+            chat.appendChild(messageDiv);
+
+            const text = data.response;
+            let i = 0;
+            const streamInterval = setInterval(() => {
+                if (i < text.length) {
+                    contentDiv.textContent = text.substring(0, i + 1);
+                    i++;
+                    chat.scrollTop = chat.scrollHeight;
+                } else {
+                    clearInterval(streamInterval);
+                    messageDiv.classList.remove('streaming-message');
+                }
+            }, 30);
+        }
+
+        function showTypingIndicator() {
+            hideTypingIndicator();
+
+            const chat = document.getElementById('chat');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message typing-message';
+            typingDiv.id = 'typingIndicator';
+
+            const indicatorDiv = document.createElement('div');
+            indicatorDiv.className = 'typing-indicator';
+            indicatorDiv.innerHTML = '<span></span><span></span><span></span>';
+
+            typingDiv.appendChild(indicatorDiv);
+            chat.appendChild(typingDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // Simple Voice Functionality
+        function initVoiceButton() {
+            const voiceBtn = document.getElementById('voice-btn');
+            if (!voiceBtn) return;
+
+            voiceBtn.addEventListener('click', async function() {
+                if (isVoiceRecording || isProcessingMessage) return;
+
+                try {
+                    isVoiceRecording = true;
+                    this.style.background = '#d32f2f';
+                    this.textContent = '🔴';
+
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mediaRecorder = new MediaRecorder(stream);
+                    const chunks = [];
+
+                    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(chunks, { type: 'audio/webm' });
+                        sendVoiceMessage(blob);
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    mediaRecorder.start();
+                    setTimeout(() => mediaRecorder.stop(), 3000);
+
+                } catch (err) {
+                    console.log('Voice not available:', err);
+                    this.style.background = '#666';
+                    this.textContent = '🚫';
+                    showTemporaryWarning('Microphone access denied');
+                } finally {
+                    setTimeout(() => {
+                        this.style.background = '#2f2f2f';
+                        this.textContent = '🎤';
+                        isVoiceRecording = false;
+                    }, 4000);
+                }
+            });
+        }
+
+        function sendVoiceMessage(audioBlob) {
+            startChat();
+            addUserMessage('🎤 Voice message');
+            showTypingIndicator();
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                fetch('/voice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        audio_data: reader.result.split(',')[1],
+                        category: document.getElementById('categoryDropdown').value
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    hideTypingIndicator();
+
+                    if (data.query) {
+                        const lastMessage = document.querySelector('#chat .message:last-child .message-content');
+                        if (lastMessage) {
+                            lastMessage.textContent = `🎤 "${data.query}"`;
+                        }
+                    }
+
+                    if (data.response) {
+                        addBotMessageWithStreaming({ response: data.response });
+                    }
+                })
+                .catch(() => {
+                    hideTypingIndicator();
+                    addBotMessage('Voice processing failed.');
+                });
+            };
+            reader.readAsDataURL(audioBlob);
+        }
+
+        // Set initial state
+        setInputState(true);
+    </script>
+</body>
+</html>

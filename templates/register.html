@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.png') }}">
+    <style>
+        .password-requirements {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .password-requirements h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .password-requirements ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .password-requirements li {
+            margin: 5px 0;
+            color: #6c757d;
+        }
+        .password-strength {
+            margin-top: 5px;
+            height: 5px;
+            border-radius: 3px;
+            background: #e9ecef;
+        }
+        .password-strength.weak { background: #dc3545; }
+        .password-strength.medium { background: #ffc107; }
+        .password-strength.strong { background: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Create Account</h2>
+                <p>Register for SAIL Chatbot access</p>
+            </div>
+
+            {% if error %}
+            <div class="alert alert-error">
+                {{ error | e }}
+            </div>
+            {% endif %}
+
+            {% if success %}
+            <div class="alert alert-success">
+                {{ success | e }}
+            </div>
+            {% endif %}
+
+            <!-- Password Requirements Info -->
+            <div class="password-requirements">
+                <h4>Password Requirements:</h4>
+                <ul>
+                    <li>At least 8 characters long</li>
+                    <li>At least one uppercase letter (A-Z)</li>
+                    <li>At least one lowercase letter (a-z)</li>
+                    <li>At least one number (0-9)</li>
+                    <li>At least one special character (!@#$%^&*)</li>
+                </ul>
+            </div>
+
+            <form method="POST" action="{{ url_for('register') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required
+                           placeholder="Enter your email" autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required
+                           placeholder="Create a password" autocomplete="new-password"
+                           minlength="8" onkeyup="checkPasswordStrength()">
+                    <div id="password-strength" class="password-strength"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required
+                           placeholder="Confirm your password" autocomplete="new-password" minlength="8">
+                </div>
+
+                <button type="submit" class="login-btn">Submit Registration Request</button>
+            </form>
+
+            <div class="login-links">
+                <a href="{{ url_for('login') }}">Already have an account? Login here</a>
+                <br>
+                <a href="{{ url_for('forgot_password') }}">Forgot your password?</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function checkPasswordStrength() {
+            const password = document.getElementById('password').value;
+            const strengthBar = document.getElementById('password-strength');
+
+            let strength = 0;
+
+            // Length check
+            if (password.length >= 8) strength++;
+
+            // Character type checks
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) strength++;
+
+            // Update strength bar
+            strengthBar.className = 'password-strength';
+            if (strength < 3) {
+                strengthBar.classList.add('weak');
+            } else if (strength < 5) {
+                strengthBar.classList.add('medium');
+            } else {
+                strengthBar.classList.add('strong');
+            }
+        }
+    </script>
+</body>
+</html>

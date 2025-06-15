@@ -1,0 +1,89 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container">
+    <h1>Document Management</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2>Process Documents</h2>
+        </div>
+        <div class="card-body">
+            <p>Process documents in a specific folder to make them searchable.</p>
+            <form id="process-form">
+                <div class="form-group">
+                    <label for="folder-select">Select Folder:</label>
+                    <select class="form-control" id="folder-select">
+                        <option value="pgp">Purchase Contract Procedures (PGP)</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="processDocuments()">Process Documents</button>
+            </form>
+            <div id="process-result" class="mt-3"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Available Documents</h2>
+        </div>
+        <div class="card-body">
+            <div id="documents-list">Loading documents...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function processDocuments() {
+    const folder = document.getElementById('folder-select').value;
+    document.getElementById('process-result').innerHTML = 'Processing documents...';
+
+    fetch('/process-documents', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            folder: folder
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('process-result').innerHTML =
+                `<div class="alert alert-success">${data.message}</div>`;
+        } else {
+            document.getElementById('process-result').innerHTML =
+                `<div class="alert alert-danger">${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        document.getElementById('process-result').innerHTML =
+            `<div class="alert alert-danger">Error: ${error}</div>`;
+    });
+}
+
+// Load documents list on page load
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/list-documents')
+    .then(response => response.json())
+    .then(data => {
+        const documentsList = document.getElementById('documents-list');
+        if (data.documents && data.documents.length > 0) {
+            let html = '<ul class="list-group">';
+            data.documents.forEach(doc => {
+                html += `<li class="list-group-item">${doc.name} <small class="text-muted">(${doc.path})</small></li>`;
+            });
+            html += '</ul>';
+            documentsList.innerHTML = html;
+        } else {
+            documentsList.innerHTML = '<p>No documents found.</p>';
+        }
+    })
+    .catch(error => {
+        document.getElementById('documents-list').innerHTML =
+            `<div class="alert alert-danger">Error loading documents: ${error}</div>`;
+    });
+});
+</script>
+{% endblock %}

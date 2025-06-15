@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='sail_logo.png') }}">
+</head>
+<body>
+    <div class="main-container">
+        <header class="admin-header">
+            <h1>🔧  Chatbot Admin Dashboard</h1>
+            <div class="header-right">
+                <span class="user-email">Welcome, {{ session.email }}!</span>
+                <button onclick="toggleDebugMode()" class="logout-btn" style="margin-right: 10px;">Debug Mode</button>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </header>
+
+        <div class="admin-content">
+            <!-- Debug Section -->
+            <div id="debugSection" class="debug-section" style="display: none;">
+                <div class="debug-title">🐛 System Debug Information</div>
+                <div class="debug-content" id="debugContent">Loading debug info...</div>
+                <div style="margin-top: 15px;">
+                    <button onclick="refreshDebugInfo()" class="btn-approve">🔄 Refresh Debug</button>
+                    <button onclick="testChatEndpoint()" class="btn-approve">🧪 Test Chat</button>
+                    <button onclick="testAllEndpoints()" class="btn-approve">🔍 Test All</button>
+                </div>
+            </div>
+
+            <!-- Statistics Overview -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalFolders">{{ folders|length if folders else 0 }}</div>
+                    <div class="stat-label">Document Folders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalFiles">
+                        {% set total_files = 0 %}
+                        {% for folder in folders %}
+                            {% set total_files = total_files + folder.file_count %}
+                        {% endfor %}
+                        {{ total_files }}
+                    </div>
+                    <div class="stat-label">Total Documents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ registered_users|length if registered_users else 0 }}</div>
+                    <div class="stat-label">Registered Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ (account_requests|length + password_requests|length) if (account_requests and password_requests) else 0 }}</div>
+                    <div class="stat-label">Pending Requests</div>
+                </div>
+            </div>
+
+            <!-- Processing Status -->
+            <div id="processingStatus" class="processing-status">
+                <div>🔄 Processing documents... Please wait.</div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div id="progressText">Initializing...</div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tab-container">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+                    <button class="tab-btn" onclick="switchTab('users')">👥 Users</button>
+                    <button class="tab-btn" onclick="switchTab('documents')">📄 Documents</button>
+                    <button class="tab-btn" onclick="switchTab('processing')">⚙️ Processing</button>
+                    <button class="tab-btn" onclick="switchTab('debug')">🔍 Debug</button>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div id="dashboard" class="tab-content active">
+                    <div class="admin-card">
+                        <h2>📊 System Overview</h2>
+                        <p>Monitor your Chatbot system status and activity.</p>
+
+                        <div id="systemStatus" class="debug-section">
+                            <div class="debug-title">🟢 System Status</div>
+                            <div class="debug-content" id="systemStatusContent">Loading system status...</div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button onclick="refreshSystemStatus()" class="btn-approve">🔄 Refresh Status</button>
+                            <button onclick="testAllEndpoints()" class="btn-approve">🧪 Test Endpoints</button>
+                            <button onclick="checkSystemHealth()" class="btn-approve">❤️ Health Check</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Management Tab -->
+                <div id="users" class="tab-content">
+                    <div class="admin-card">
+                        <h2>👥 User Management</h2>
+
+                        <!-- Account Requests -->
+                        <h3>📋 Pending Account Requests</h3>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead><tr><th>Email</th><th>Request Date</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    {% for req in account_requests %}
+                                    <tr id="account-req-{{ req.id }}">
+                                        <td>{{ req.email }}</td>
+                                        <td>{{ req.created_at }}</td>
+                                        <td>
+                                            <button class="btn-approve" onclick="approveAccount({{ req.id }})">✅ Approve</button>
+                                            <button class="btn-deny" onclick="denyAccount({{ req.id }})">❌ Deny</button>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="3" style="text-align: center; color: var(--secondary-text);">No pending account requests.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Registered Users -->
+                        <h3>✅ Registered Users</h3>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead><tr><th>Email</th><th>Registration Date</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    {% for user in registered_users %}
+                                    <tr>
+                                        <td>{{ user.email }}</td>
+                                        <td>{{ user.created_at }}</td>
+                                        <td>
+                                            <button class="btn-deny" onclick="resetUserPasswordPrompt('{{ user.email }}')">🔑 Reset Password</button>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="3" style="text-align: center; color: var(--secondary-text);">No registered users yet.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents Tab -->
+                <div id="documents" class="tab-content">
+                    <div class="admin-card">
+                        <h2>📄 Document Management</h2>
+                        <p>Manage uploaded documents and categories.</p>
+
+                        <!-- Upload Area -->
+                        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-text">Click to upload documents</div>
+                            <div class="upload-subtext">Supports PDF, DOC, DOCX, TXT files</div>
+                            <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt" style="display: none;" onchange="handleFileUpload(event)">
+                        </div>
+
+                        <!-- Document Folders -->
+                        {% if folders %}
+                        <h3>📂 Document Categories</h3>
+                        <div class="file-grid">
+                            {% for folder in folders %}
+                            <div class="folder-card">
+                                <div class="folder-header">
+                                    <div class="folder-icon">📁</div>
+                                    <h4 class="folder-name">{{ folder.name|title }}</h4>
+                                </div>
+
+                                <div class="folder-stats">
+                                    <div class="file-count">{{ folder.file_count }} files</div>
+                                    <div class="folder-actions">
+                                        <button class="action-btn process" onclick="processFolder('{{ folder.name }}')">⚙️ Process</button>
+                                        <button class="action-btn" onclick="viewFolder('{{ folder.name }}')">👁️ View</button>
+                                        <button class="action-btn" onclick="refreshFolder('{{ folder.name }}')">🔄 Refresh</button>
+                                    </div>
+                                </div>
+
+                                <div class="file-list">
+                                    {% for file in folder.files[:5] %}
+                                    <div class="file-item">
+                                        <span class="file-icon">📄</span>
+                                        <span>{{ file }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    {% if folder.files|length > 5 %}
+                                    <div class="file-item">
+                                        <span class="file-icon">⋯</span>
+                                        <span>and {{ folder.files|length - 5 }} more files...</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div style="text-align: center; padding: 40px; color: var(--secondary-text);">
+                            <div style="font-size: 48px; margin-bottom: 20px;">📂</div>
+                            <h3>No document folders found</h3>
+                            <p>Upload some documents to get started!</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Processing Tab -->
+                <div id="processing" class="tab-content">
+                    <div class="admin-card">
+                        <h2>⚙️ Document Processing</h2>
+                        <p>Process documents and rebuild embeddings for better search results.</p>
+
+                        <div class="debug-section">
+                            <div class="debug-title">🔄 Batch Processing</div>
+                            <div style="margin: 15px 0;">
+                                <button onclick="runBatchProcessing()" class="btn-process">🚀 Run Batch Processing</button>
+                                <button onclick="rebuildEmbeddings()" class="btn-process">🧠 Rebuild Embeddings</button>
+                                <button onclick="processDataFiles()" class="btn-process">📊 Process Data Files</button>
+                            </div>
+                            <div class="debug-content" id="processingResults">No processing tasks run yet.</div>
+                        </div>
+
+                        <div class="debug-section">
+                            <div class="debug-title">📈 Processing Status</div>
+                            <div class="debug-content" id="processingStatus">
+                                <div>Last processing: Never</div>
+                                <div>Total documents processed: 0</div>
+                                <div>Embeddings status: Not built</div>
+                                <div>System ready: ✅</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debug Tab -->
+                <div id="debug" class="tab-content">
+                    <div class="admin-card">
+                        <h2>🔍 System Debug</h2>
+                        <p>Advanced debugging and testing tools.</p>
+
+                        <div class="debug-section">
+                            <div class="debug-title">🧪 Endpoint Tests</div>
+                            <div style="margin: 15px 0;">
+                                <button onclick="testEndpoint('/get_dropdown_options')" class="btn-approve">Test Dropdown</button>
+                                <button onclick="testChatEndpoint()" class="btn-approve">Test Chat</button>
+                                <button onclick="testVoiceEndpoint()" class="btn-approve">Test Voice</button>
+                            </div>
+                            <div class="debug-content" id="endpointTestResults">No tests run yet.</div>
+                        </div>
+
+                        <div class="debug-section">
+                            <div class="debug-title">💬 Chat Simulation</div>
+                            <div style="margin: 15px 0;">
+                                <input type="text" id="testMessage" placeholder="Enter test message" style="width: 300px; padding: 8px; background: var(--tertiary-bg); border: 1px solid var(--border-color); color: var(--primary-text); border-radius: 6px;">
+                                <select id="testCategory" style="padding: 8px; background: var(--tertiary-bg); border: 1px solid var(--border-color); color: var(--primary-text); border-radius: 6px;">
+                                    <option value="general">General</option>
+                                    <option value="hr">HR</option>
+                                    <option value="pgp">PGP</option>
+                                </select>
+                                <button onclick="simulateChat()" class="btn-approve">Send Test</button>
+                            </div>
+                            <div class="debug-content" id="chatSimResults">No simulation run yet.</div>
+                        </div>
+
+                        <div class="debug-section">
+                            <div class="debug-title">📋 System Logs</div>
+                            <button onclick="refreshLogs()" class="btn-approve">🔄 Refresh Logs</button>
+                            <div class="debug-content" id="systemLogs">Click refresh to load recent logs.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

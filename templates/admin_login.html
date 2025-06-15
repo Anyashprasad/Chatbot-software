@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard -  Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.png') }}">
+</head>
+<body>
+    <div class="main-container">
+        <header class="admin-header">
+            <h1>Admin Dashboard</h1>
+            <p>Welcome, {{ session.email }}!</p>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </header>
+
+        <div class="admin-content">
+            <!-- Document Management Card -->
+            <div class="admin-card">
+                <h2>Document Management</h2>
+                <p>Upload new PDF documents to a new or existing category.</p>
+                <form action="{{ url_for('upload_document') }}" method="post" enctype="multipart/form-data" id="uploadForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="form-group">
+                        <label for="category">Select Category</label>
+                        <select name="category" id="category" class="form-control" required>
+                             <option value="" disabled selected>-- Choose an existing category --</option>
+                             {% for cat in categories %}
+                                <option value="{{ cat }}">{{ cat|capitalize }}</option>
+                             {% endfor %}
+                             <option value="add_new">** Add a New Category **</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="new_category_group" style="display: none;">
+                        <label for="new_category">New Category Name</label>
+                        <input type="text" name="new_category" id="new_category" placeholder="e.g., finance, legal" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="document">Upload PDF File</label>
+                        <input type="file" name="document" id="document" class="form-control-file" required accept=".pdf">
+                    </div>
+                    <button type="submit" class="btn-approve">Upload and Process</button>
+                </form>
+                <div id="uploadProgress" style="display: none; margin-top: 20px;">
+                    <p><strong>Processing document...</strong> This may take a few minutes. Please do not navigate away from this page.</p>
+                    <div class="progress-bar">
+                        <div class="progress-bar-inner"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Requests Card -->
+            <div class="admin-card">
+                <h2>Account Requests</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Email</th><th class="actions-column">Actions</th></tr></thead>
+                        <tbody>
+                            {% for req in account_requests %}
+                            <tr>
+                                <td>{{ req.email }}</td>
+                                <td class="action-buttons">
+                                    <form action="{{ url_for('approve_request', request_id=req.id) }}" method="post" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn-approve">Approve</button>
+                                    </form>
+                                    <form action="{{ url_for('deny_request', request_id=req.id) }}" method="post" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn-deny">Deny</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2" style="text-align: center;">No pending account requests.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Simple script to handle showing the 'new category' input field
+        document.getElementById('category').addEventListener('change', function() {
+            var newCategoryGroup = document.getElementById('new_category_group');
+            var newCategoryInput = document.getElementById('new_category');
+            if (this.value === 'add_new') {
+                newCategoryGroup.style.display = 'block';
+                newCategoryInput.required = true;
+            } else {
+                newCategoryGroup.style.display = 'none';
+                newCategoryInput.required = false;
+            }
+        });
+
+        // Show a persistent progress indicator on form submission
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            // Check if file is selected before showing progress
+            if (document.getElementById('document').files.length > 0) {
+                 document.getElementById('uploadProgress').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
