@@ -1,0 +1,154 @@
+# SecureDoc Chatbot
+
+A locally hosted AI chatbot that allows users to query and interact with PDFs, Word, and Excel documents using OCR and a local language model. Built with Python, Flask, Tesseract, Poppler, and Ollama for complete offline capability.
+
+> 🛡️ Originally developed as part of a document automation solution for internal workflows. This public version excludes all proprietary data and branding.
+
+---
+
+## 🚀 Features
+
+- 📄 OCR support for scanned documents via Tesseract
+- 📚 Extracts content from PDFs, DOCX, XLSX
+- 🧠 Local LLM response generation with [Ollama](https://ollama.com/)
+- 🌐 Flask-based web UI
+- 🛠️ Supports command-line testing and debugging
+- 💡 Simple folder-based architecture for logs, uploads, and cache
+
+---
+
+## 🧱 System Requirements
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| OS | Windows 10/11 | — |
+| Python | 3.11+ | — |
+| RAM | 32 GB | 64 GB |
+| GPU | RTX 3060 (12GB) | RTX 3090/4090 (24GB) |
+| CPU | i5-11400 / Ryzen 5 5600 | i7-13700K / Ryzen 7 7800X |
+
+---
+
+## ⚙️ Installation
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/securedoc-chatbot.git
+cd securedoc-chatbot
+2. Create a Virtual Environment
+bash
+python -m venv .venv1
+.venv1\Scripts\activate
+3. Install Python Dependencies
+bash
+
+pip install -r requirements.txt
+📦 Dependency Setup (OCR + LLM)
+✅ Tesseract OCR
+Download from: https://github.com/UB-Mannheim/tesseract/wiki
+
+Install to: C:\Program Files\Tesseract-OCR
+
+Ensure it is added to system PATH during install
+
+bash
+
+pip install pytesseract Pillow
+✅ Poppler for PDF Rendering
+Download from: https://github.com/oschwartz10612/poppler-windows/releases
+
+Extract to: C:\Program Files\poppler-21.11.0
+
+Add bin folder to system PATH
+
+bash
+
+pip install pdf2image PyPDF2
+✅ Ollama (for Local LLM)
+Download from: https://ollama.com/
+
+Install and verify with:
+
+bash
+
+ollama --version
+ollama run qwen2:7b-instruct
+Python bindings:
+
+bash
+pip install ollama
+📁 Folder Structure
+⚠️ These folders are .gitignored and must be created manually.
+
+Run this script to auto-create the folder structure:
+
+bash
+python create_dirs.py
+create_dirs.py
+python
+
+import os
+
+folders = [
+    'uploads',
+    'uploads/pdf',
+    'uploads/images',
+    'cache',
+    'logs',
+    'logs/errors',
+    'logs/api',
+    'data'
+]
+
+for folder in folders:
+    os.makedirs(folder, exist_ok=True)
+
+print("✅ All required folders created!")
+🧪 Verify Setup
+Test your setup with:
+
+bash
+python test_dependencies.py
+Or create your own script to check:
+
+PyTesseract
+
+Poppler via pdf2image
+
+Ollama (CLI + Python)
+
+PATH and environment config
+
+▶️ Run the App
+bash
+python app.py
+Open in your browser at: http://127.0.0.1:5000/
+
+🧯 Troubleshooting
+Issue	Fix
+TesseractNotFoundError	Set path in code: pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+Poppler not found	Pass poppler_path explicitly to convert_from_path()
+Ollama service not running	Run ollama serve in a separate terminal
+
+📜 License
+This public version is provided for educational, learning, and personal portfolio use only. Do not use internal data, branding, or intellectual property without permission.
+
+🙏 Acknowledgements
+Tesseract OCR
+
+Poppler PDF Tools
+
+Ollama LLM Hosting
+
+Flask
+
+markdown
+
+---
+
+### 📌 Final Steps
+- ✅ Save this as `README.md` in your project root.
+- ✅ Add `create_dirs.py` file.
+- ✅ Run `git add README.md create_dirs.py` and commit it.
+
+

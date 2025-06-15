@@ -1,0 +1,39 @@
+# Ignore virtual environment
+.venv/
+venv/
+.venv1
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+
+# Ignore logs
+*.log
+
+# Ignore databases
+*.db
+
+# Ignore environment and config secrets
+.env
+
+# Ignore system files
+.DS_Store
+
+# Ignore uploads and temporary folders
+uploads/
+cache/
+logs/
+data/
+
+# Ignore JetBrains IDE files (like PyCharm)
+.idea/
+
+generate_presentation.py
+config.py
+users.db
+your_database.db
+chatbot_backend.log
+chatbot_debug.log
+sail_chatbot.db
+sail_chatbot.log
+static/sail_web_logo.png
+static/sail_logo.png
